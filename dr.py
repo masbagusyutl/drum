@@ -1,11 +1,18 @@
 import requests
 import time
 import json
+import re
 from datetime import datetime, timedelta
 
 def read_file(file_name):
     with open(file_name, 'r') as file:
         return file.read().strip().splitlines()
+
+def extract_dev_auth_data(auth_data):
+    match = re.search(r'user=%7B%22id%22%3A(\d+)%2C', auth_data)
+    if match:
+        return match.group(1)
+    return None
 
 def post_request(auth_data, dev_auth_data):
     url = "https://drumapi.wigwam.app/api/claimTaps"
@@ -34,12 +41,16 @@ def countdown_timer(seconds):
 
 def main():
     auth_data_list = read_file('data.txt')
-    dev_auth_data_list = read_file('idtele.txt')
     
     num_accounts = len(auth_data_list)
     print(f"Total accounts: {num_accounts}")
     
-    for i, (auth_data, dev_auth_data) in enumerate(zip(auth_data_list, dev_auth_data_list)):
+    for i, auth_data in enumerate(auth_data_list):
+        dev_auth_data = extract_dev_auth_data(auth_data)
+        if not dev_auth_data:
+            print(f"Failed to extract devAuthData for account {i + 1}. Skipping this account.")
+            continue
+        
         print(f"Processing account {i + 1} of {num_accounts}")
         for j in range(50):
             success = post_request(auth_data, dev_auth_data)
