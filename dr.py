@@ -20,8 +20,8 @@ def post_request(auth_data, dev_auth_data):
         "devAuthData": int(dev_auth_data),
         "authData": auth_data,
         "data": {
-            "taps": 1,
-            "amount": 1
+            "taps": 8,
+            "amount": 8
         }
     }
     headers = {
@@ -52,18 +52,20 @@ def main():
             continue
         
         print(f"Processing account {i + 1} of {num_accounts}")
-        for j in range(50):
+        process_count = 0
+        while True:
+            process_count += 1
             success = post_request(auth_data, dev_auth_data)
             if success:
-                print(f"Process {j + 1} for account {i + 1} processed successfully.")
+                print(f"Process {process_count} for account {i + 1} processed successfully.")
             else:
-                print(f"Failed to process {j + 1} for account {i + 1}.")
+                print(f"Failed to process {process_count} for account {i + 1}. Switching to next account.")
+                break
             time.sleep(2)
-        print(f"Completed processing 50 times for account {i + 1}.")
         time.sleep(5)
     
-    print("All accounts processed. Starting 1-hour countdown.")
-    countdown_timer(3600)
+    print("All accounts processed. Starting 3-hour countdown.")
+    countdown_timer(3 * 3600)
     print("Restarting the process.")
     main()
 
