@@ -13,8 +13,8 @@ def post_request(auth_data, dev_auth_data):
         "devAuthData": int(dev_auth_data),
         "authData": auth_data,
         "data": {
-            "taps": 8,
-            "amount": 8
+            "taps": 97,
+            "amount": 97
         }
     }
     headers = {
