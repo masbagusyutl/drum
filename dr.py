@@ -2,6 +2,7 @@ import requests
 import time
 import json
 import re
+import random
 from datetime import datetime, timedelta
 
 def read_file(file_name):
@@ -14,20 +15,57 @@ def extract_dev_auth_data(auth_data):
         return match.group(1)
     return None
 
-def post_request(auth_data, dev_auth_data):
-    url = "https://drumapi.wigwam.app/api/claimTaps"
+def parse_user_info(response_content):
+    # Parsing balance
+    balance_start = response_content.find('"balance":') + len('"balance":')
+    balance_end = response_content.find(',', balance_start)
+    balance = response_content[balance_start:balance_end].strip().strip('"')
+    balance = int(float(balance))  # Convert to float first, then to int
+    
+    # Parsing username
+    username_start = response_content.find('"username":"') + len('"username":"')
+    username_end = response_content.find('"', username_start)
+    username = response_content[username_start:username_end]
+    
+    # Parsing availableTaps
+    available_taps_start = response_content.find('"availableTaps":') + len('"availableTaps":')
+    available_taps_end = response_content.find(',', available_taps_start)
+    available_taps = int(response_content[available_taps_start:available_taps_end].strip())
+    
+    return balance, username, available_taps
+
+def get_user_info(auth_data, dev_auth_data):
+    url = "https://drumapi.wigwam.app/api/getUserInfo"
     payload = {
-        "devAuthData": int(dev_auth_data),
         "authData": auth_data,
-        "data": {
-            "taps": 10,
-            "amount": 10
-        }
+        "devAuthData": int(dev_auth_data),
+        "platform": "tdesktop"
     }
     headers = {
         "Content-Type": "application/json"
     }
     
+    response = requests.post(url, data=json.dumps(payload), headers=headers)
+    
+    if response.status_code == 200:
+        return parse_user_info(response.content.decode('utf-8'))
+    else:
+        print(f"Failed to get user info. Status code: {response.status_code}")
+        return None, None, None
+
+def post_taps_request(auth_data, dev_auth_data, taps):
+    payload = {
+        "devAuthData": int(dev_auth_data),
+        "authData": auth_data,
+        "data": {
+            "taps": taps,
+            "amount": taps
+        }
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    url = "https://drumapi.wigwam.app/api/claimTaps"
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     return response.status_code == 200
 
@@ -52,16 +90,30 @@ def main():
             continue
         
         print(f"Processing account {i + 1} of {num_accounts}")
-        process_count = 0
-        while True:
-            process_count += 1
-            success = post_request(auth_data, dev_auth_data)
-            if success:
-                print(f"Process {process_count} for account {i + 1} processed successfully.")
+        
+        # Get user info
+        balance, username, available_taps = get_user_info(auth_data, dev_auth_data)
+        if balance is not None:
+            print(f"Account {i + 1} info: Balance={balance}, Username={username}, Available Taps={available_taps}")
+            
+            # Process taps
+            if available_taps > 0:
+                remaining_taps = available_taps
+                while remaining_taps > 0:
+                    # Determine a random number of taps between 1 and 10, ensuring we don't exceed remaining_taps
+                    taps = random.randint(1, min(10, remaining_taps))
+                    success = post_taps_request(auth_data, dev_auth_data, taps)
+                    if success:
+                        print(f"Taps processed successfully for account {i + 1}: Taps={taps}")
+                        remaining_taps -= taps
+                    else:
+                        print(f"Failed to process taps for account {i + 1}.")
+                    time.sleep(2)
             else:
-                print(f"Failed to process {process_count} for account {i + 1}. Switching to next account.")
-                break
-            time.sleep(2)
+                print(f"No available taps for account {i + 1}.")
+        else:
+            print(f"Failed to retrieve user info for account {i + 1}.")
+        
         time.sleep(5)
     
     print("All accounts processed. Starting 3-hour countdown.")
